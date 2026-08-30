@@ -26,7 +26,7 @@ const STOMP_V   = -4.2;
 const COYOTE    = 6;         // frames na het verlaten van de grond
 const BUFFER    = 7;         // frames dat een sprongdruk blijft "hangen"
 const START_LIVES = 9;
-const HEARTS_PER_LIFE = 20;  // om de 20 hartjes een extra leven
+const HEARTS_PER_LIFE = 20;  // om de 20 botjes een extra leven
 const BOSS_JUMPS = 10;       // zo vaak moet je over de stofzuiger springen
 
 const canvas = document.getElementById("game");
@@ -257,19 +257,20 @@ const BIRD_BODY = [
   "............",
 ];
 
-const PAL_HEART = { o: "#7a1030", r: "#ff4d6d", h: "#ffc2d1" };
+// Hondenbotje (kluif). De var-namen blijven "HEART" zodat de rest van de code
+// ongewijzigd blijft: SPR.heart is nu gewoon een botje.
+const PAL_HEART = { o: "#8a6a2e", r: "#f2e2b0", h: "#fffbe8" };
 const HEART_MAP = [
-  "..oo.oo..",
-  ".ohrorro.",
-  "orrrrrrro",
-  "orrrrrrro",
-  ".orrrrro.",
-  "..orrro..",
-  "...oro...",
-  "....o....",
+  ".oo.....oo.",
+  "ohro...orho",
+  "orrrooorrro",
+  ".orrrrrrro.",
+  "orrrooorrro",
+  "ohro...orho",
+  ".oo.....oo.",
 ];
 
-// Visje: geeft Jack tijdelijk een schild tegen één klap. Groter dan een hartje, zodat hij goed opvalt.
+// Visje: geeft Jack tijdelijk een schild tegen één klap. Groter dan een botje, zodat hij goed opvalt.
 const PAL_FISH = { o: "#7a4a10", y: "#ffb020", l: "#ffe08a", e: "#1b1b22" };
 const FISH_MAP = [
   ".....oooo........",
@@ -284,7 +285,7 @@ const FISH_MAP = [
   ".....oooo........",
 ];
 
-// Muisje: rent weg van Jack, vangen geeft +10 hartjes. Grijs, zodat hij niet op het gele visje lijkt.
+// Muisje: rent weg van Jack, vangen geeft +10 botjes. Grijs, zodat hij niet op het gele visje lijkt.
 const PAL_MOUSE = { o: "#241f1c", g: "#b8b0c0", d: "#847c94", p: "#f2a3b0", e: "#1b1b22" };
 const MOUSE_BODY = [
   "....................",
@@ -769,7 +770,7 @@ function blit(spr, x, y, flip, scale = 1) {
 /* --------------------------------------------------------------------------
    Levels
    Tekens: # grond   = zwevend platform   ~ water (gevaarlijk)
-           P start   H hartje   D hond   B vogel   C rivaliserende kat
+           P start   H botje   D hond   B vogel   C rivaliserende kat
            G hemelpoort (einde level)    . leeg
    -------------------------------------------------------------------------- */
 const LEVELS = [
@@ -1052,7 +1053,7 @@ const game = {
   paused: false,
   frame: 0,
   stage: "level",    // "level" | "boss" | "charlie"
-  popup: { text: "", timer: 0, color: "#ffe36e" },   // korte melding boven in beeld (extra leven, schild, hartjes...)
+  popup: { text: "", timer: 0, color: "#ffe36e" },   // korte melding boven in beeld (extra leven, schild, botjes...)
   finished: false,   // heeft de speler de hemel gehaald?
 };
 
@@ -1197,7 +1198,7 @@ function makeBird(px, py) {
            dead: false, deadT: 0, anim: 0 };
 }
 
-/** Muisje: dwaalt rustig rond, maar sprint weg zodra Jack dichtbij komt. Geen gevaar, alleen vangen voor +10 hartjes. */
+/** Muisje: dwaalt rustig rond, maar sprint weg zodra Jack dichtbij komt. Geen gevaar, alleen vangen voor +10 botjes. */
 const MOUSE_IDLE_SPEED = 0.5;
 const MOUSE_FLEE_SPEED = 1.9;   // net iets langzamer dan Jack's topsnelheid: lastig, maar niet onmogelijk
 const MOUSE_FLEE_RADIUS = 70;
@@ -1479,12 +1480,12 @@ function updateFishEntity(f) {
 }
 
 /* --------------------------------------------------------------------------
-   Speler tegen wereld: hartjes, vijanden, water, gaten, poort
+   Speler tegen wereld: botjes, vijanden, water, gaten, poort
    -------------------------------------------------------------------------- */
 function checkInteractions() {
   const p = player;
 
-  // hartjes
+  // botjes
   for (const h of level.hearts) {
     if (h.got) continue;
     if (overlaps(p, h)) {
@@ -1507,14 +1508,14 @@ function checkInteractions() {
     }
   }
 
-  // muisjes: rennen weg, vangen geeft +10 hartjes
+  // muisjes: rennen weg, vangen geeft +10 botjes
   for (const m of level.mice) {
     if (m.caught || m.expired) continue;
     if (overlaps(p, m)) {
       m.caught = true;
       Sound.heart();
       spawnParticles(m.x + m.w / 2, m.y + 4, "#c9bdb0", 8, 1.6);
-      showPopup("+10 HARTJES!", "#ff8fa8");
+      showPopup("+10 BOTJES!", "#ff8fa8");
       addHearts(10, p.x + p.w / 2, p.y);
     }
   }
@@ -1563,7 +1564,7 @@ function checkInteractions() {
   }
 }
 
-/** Telt hartjes op en geeft, indien van toepassing, extra levens (ook gebruikt voor het vangen van een muisje). */
+/** Telt botjes op en geeft, indien van toepassing, extra levens (ook gebruikt voor het vangen van een muisje). */
 function addHearts(n, x, y) {
   const before = Math.floor(game.hearts / HEARTS_PER_LIFE);
   game.hearts += n;
@@ -2188,7 +2189,7 @@ function drawFish() {
     if (x < -20 || x > VIEW_W + 20) continue;
     // knippert sneller vlak voor het wegzwemt, als laatste waarschuwing
     if (f.life > FISH_LIFETIME - 90 && Math.floor(game.frame / 5) % 2 === 0) continue;
-    // en anders af en toe kort, zodat het extra opvalt tussen de hartjes
+    // en anders af en toe kort, zodat het extra opvalt tussen de botjes
     const cycle = (game.frame + Math.floor(f.t * 20)) % 50;
     if (cycle < 4) continue;
     blit(SPR.fish, x, f.y + Math.sin(f.t) * 2);
@@ -2400,7 +2401,7 @@ function drawCharlie() {
 
   blit(SPR.charlie, x, y);
 
-  // zwevende hartjes tijdens de knuffel
+  // zwevende botjes tijdens de knuffel
   if (game.state === STATE.HUG) {
     for (let i = 0; i < 4; i++) {
       const t = (game.timer * 0.6 + i * 22) % 90;
@@ -2523,7 +2524,7 @@ function drawTitle() {
   text("Breng Jack veilig thuis", cx, 176, 9, "#5c3a7a", "center", false);
   const beste = sortScores(loadScores())[0];
   if (beste) {
-    text(`Beste: ${String(beste.name).toUpperCase()} - ${beste.hearts} hartjes`,
+    text(`Beste: ${String(beste.name).toUpperCase()} - ${beste.hearts} botjes`,
          cx, 190, 9, "#8f2f6b", "center", false);
   } else {
     text("Pas op voor katten, auto's en boze honden", cx, 190, 9, "#5c3a7a", "center", false);
@@ -2684,7 +2685,7 @@ function drawStory() {
     "Dus gaat Jack op pad: langs katten,",
     "vogels, boze honden en drukke wegen.",
     "",
-    "Verzamel hartjes: elke 20 geeft een",
+    "Verzamel botjes: elke 20 geeft een",
     "extra leven om langer door te gaan.",
     "",
     "Als hij thuiskomt, is alles weer goed.",
@@ -2709,7 +2710,7 @@ function drawNameEntry() {
   const p = panel(260, 110);
 
   text("TOP 10!", cx, p.y + 10, 16, "#ffe36e", "center");
-  text(`Je hebt ${game.hearts} hartjes`, cx, p.y + 32, 10, "#ffffff", "center");
+  text(`Je hebt ${game.hearts} botjes`, cx, p.y + 32, 10, "#ffffff", "center");
   text("Typ je naam:", cx, p.y + 50, 9, "#cfe6ff", "center");
 
   const naam = nameEntry + (Math.floor(game.frame / 20) % 2 ? "_" : " ");
