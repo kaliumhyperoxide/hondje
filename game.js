@@ -768,6 +768,16 @@ function blit(spr, x, y, flip, scale = 1) {
 }
 
 /* --------------------------------------------------------------------------
+   Handgetekende achtergronden (foto's van tekeningen van Charlie & Silke).
+   Een level met `bg: "bestand.jpg"` gebruikt die tekening i.p.v. de lucht/heuvels.
+   -------------------------------------------------------------------------- */
+const BG_IMAGES = {};
+function loadBg(src) {
+  if (!BG_IMAGES[src]) { const i = new Image(); i.src = src; BG_IMAGES[src] = i; }
+  return src;
+}
+
+/* --------------------------------------------------------------------------
    Levels
    Tekens: # grond   = zwevend platform   ~ water (gevaarlijk)
            P start   H botje   D hond   B vogel   C rivaliserende kat
@@ -777,6 +787,7 @@ const LEVELS = [
   {
     name: "Het Grote Grasveld",
     sky: ["#8fd3ff", "#dff2ff"],
+    bg: loadBg("achtergrond-grasveld.jpg"), bgHorizon: 0.64,
     hill: "#63b85f", hillDark: "#4a8f47",
     grass: "#5cc450", grassDark: "#43a03c",
     dirt: "#9c6b43", dirtDark: "#77502f",
@@ -1981,6 +1992,20 @@ function update() {
 /* --------------------------------------------------------------------------
    Tekenen
    -------------------------------------------------------------------------- */
+/** Tekent de handgetekende achtergrond. Geeft false terug als het plaatje nog
+    niet geladen is (dan valt render() terug op de gewone lucht). */
+function drawHandBg(def) {
+  const im = BG_IMAGES[def.bg];
+  if (!im || !im.complete || !im.naturalWidth) return false;
+  const groundTop = def.noGround ? VIEW_H : (ROWS - 2) * TILE;
+  const horizon = def.bgHorizon || 0.64;
+  const w = VIEW_W + 44;                         // net iets breder dan het scherm: klein beetje parallax
+  const h = Math.round(w * im.naturalHeight / im.naturalWidth);
+  const pan = Math.min(w - VIEW_W, Math.round(cam.x * 0.04));
+  ctx.drawImage(im, -pan, Math.round(groundTop - h * horizon), w, h);
+  return true;
+}
+
 function drawSky(def) {
   const g = ctx.createLinearGradient(0, 0, 0, VIEW_H);
   g.addColorStop(0, def.sky[0]);
@@ -2750,11 +2775,15 @@ function render() {
   if (game.state === STATE.SCORES) { drawScores(); return; }
 
   const def = level.def;
-  drawSky(def);
-  drawAdamTower(def);
-  drawClouds();
-  if (def.buildings) drawBuildings(def);
-  else if (!def.noGround) drawHills(def);
+  if (def.bg && drawHandBg(def)) {
+    // de tekening vervangt lucht, wolken, heuvels en de toren
+  } else {
+    drawSky(def);
+    drawAdamTower(def);
+    drawClouds();
+    if (def.buildings) drawBuildings(def);
+    else if (!def.noGround) drawHills(def);
+  }
   if (game.stage === "charlie") drawGreenery();
   drawDecor(def);
   drawTiles(def);
