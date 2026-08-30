@@ -312,15 +312,13 @@ const SHARK_MAP = [
 
 // Botje (hondenkluif) in plaats van een hartje. Var-namen blijven "HEART" zodat
 // de rest van de code niet hoeft te veranderen.
-const PAL_HEART = { o: "#7a5c26", r: "#f3e4b4", h: "#fffbe8" };
+const PAL_HEART = { o: "#8a6a2e", r: "#f2e2b0", h: "#fffbe8" };
 const HEART_MAP = [
   ".oo.....oo.",
   "ohro...orho",
-  "orro...orro",
-  "orrrrrrrrro",
+  "orrrooorrro",
   ".orrrrrrro.",
-  "orrrrrrrrro",
-  "orro...orro",
+  "orrrooorrro",
   "ohro...orho",
   ".oo.....oo.",
 ];
@@ -888,14 +886,14 @@ const LEVELS = [
       "....................|....................|....................|....................|....................|....................",
       "....................|....................|....................|....................|....................|....................",
       "....................|....................|....................|....................|....................|....................",
-      "....................|.........B..........|....................|....................|....................|.B..................",
+      "....................|............B.......|....................|....................|..........B.........|....................",
       "....................|....................|....................|....................|....................|....................",
-      "....................|....................|....................|....................|....................|....................",
-      "....~~~~~E~~~~~~~~~~|~~~~~E~~~~~~~~~~~~~~|~~~~~E~~~~~~~~~~~~~~|~~~E~~~~~~~~~~~~~~~~|E~~~~~~~~~~~~~~~~E~~|~~~~~~~~~E~~~.......",
-      "....~~~~~~~H~~~~~~~~|~~~~~~~~~~~~~~~~H~~~|H~~~~~~~~~~~L~~~~~~~|~~~~~~~~H~~~~~~~~~~~|~~W~~~~~~~~~~~~H~~~~|~~~~~~~~~~~~~.......",
-      "....~~~~~~~~~~~~~~~~|~~L~~~~~~~H~~~~~~~W~|~~~~~~~~~~~~~~~~~~H~|~~~~~~~~~~~~F~~~~~~~|~~~~~~H~~~L~~~~~~~~~|~~~~~~~~~~~~~.......",
-      "..P.~~~~~~~~~~~~~~~~|H~~~~~~~~~~~~~~~~~~~|~~~~~~~~~H~~~~~~~~~~|~~~~~~L~~~~~~~~~~H~~|~~~~~~~~~~~~~~~~~~~~|~~~~H~~~~~~~~...G...",
-      "#####~~~~~~~~~~~~~~~|~~~~~~~~~~~~~~~~~~~~|~~~~~~~~~~~~~~~~~~~~|~~~~~~~~~~~~~~~~~~~~|~~~~~~~~~~~~~~~~~~~~|~~~~~~~~~~~~~#######",
+      "..P.................|....................|....................|....................|....................|.................G..",
+      "#####~~~~~~~~~~E~~~~|~~~~~~~E~~~~~~~~~~~~|~~~~~~~~~~~~E~~~~~~~|~~~~E~~~~~~~~~~~~~~~|~~~~~~E~~~~~~~~~~~~E|~~~~~~~~~~~~~~~#####",
+      "#####~~~~~~~~H~~~~~~|~~~~~~~~~~~~~~~~~~~~|~~~~~~~~H~~~~~~~~~~~|L~~~~~~H~~~~~~~~~~~~|~~~~~~~~~~~~~~W~~~~~|~~H~~~~~~~~~~~~#####",
+      "#####~~~~~~~~~~~~~~~|~H~~L~~~~~~~~~~~~~W~|~~~~~~~~~~~~~~~~H~~~|~~~~~~~~~~F~~~~~~~~~|~~~~~~~~~~~~H~~~~~~~|~~~~L~~~~~~~~~~#####",
+      "#######~~~~~~~~~~~~~|~~~~~~~~~~~~H~~~~~~~|###~~~~~~~~~~~~~~~~~|~~~~~~~~~~~~~~~~~~~~|~~H~~~L~~~~~~~~~~~~~|~~~~~~~~~~~~~#######",
+      "########~~~~~~~~~~~~|~~~~~~~~~~~~~~~~~~~~|###~~~~~~~~~~~~~~~~~|~~~~~~~~~~~~~~##~~~~|~~~~~~~~~~~~~~~~~~~~|~~~~~~~~~~~~########",
       "####################|####################|####################|####################|####################|####################",
     ],
   },
@@ -1247,6 +1245,16 @@ function parseLevel(def) {
     }
   }
 
+  // Zwemlevel: de plekken waar een botje/eend/vis stond zijn nu "." -> vul ze weer
+  // met water zodat er geen gaten in het meer zitten.
+  if (def.swim) {
+    const holes = [];
+    for (let y = 0; y < grid.length; y++)
+      for (let x = 0; x < width; x++)
+        if (grid[y][x] === "." && grid[y + 1] && grid[y + 1][x] === "~") holes.push([y, x]);
+    for (const [y, x] of holes) grid[y][x] = "~";
+  }
+
   // Achtergronddecor: wolken en struiken/bomen, deterministisch verdeeld.
   for (let i = 0; i < Math.ceil(width / 6); i++) {
     lvl.clouds.push({
@@ -1571,11 +1579,13 @@ function updateEnemy(en) {
 
   if (en.type === "shark") {
     const dx = (player.x + player.w / 2) - (en.x + en.w / 2);
-    const near = Math.abs(dx) < 95 && Math.abs(player.y - en.y) < 42;
+    // alleen happen als Jack echt vlakbij is, en niet sneller dan Jack kan zwemmen
+    const near = Math.abs(dx) < 48 && Math.abs(player.y - en.y) < 30 &&
+                 Math.abs(en.x - en.homeX) < en.range + 24;
     if (near) {
-      en.vx = (dx < 0 ? -2.1 : 2.1);          // duikt op Jack af
+      en.vx = (dx < 0 ? -1.55 : 1.55);        // schiet richting Jack (te outzwemmen)
     } else {
-      en.vx = Math.sign(en.vx || -1) * 1.1;   // rustige patrouille
+      en.vx = Math.sign(en.vx || -1) * 1.0;   // rustige patrouille
       if (en.x < en.homeX - en.range || en.x > en.homeX + en.range) en.vx *= -1;
     }
     en.x += en.vx;
@@ -2404,6 +2414,20 @@ function drawTiles(def) {
         continue;
       }
 
+      if ((t === "#" || t === "=") && def.swim && tileAt(level, tx, ty - 1) === "~") {
+        // meerbodem onder water: zanderig, geen gras
+        ctx.fillStyle = "#9a8560";
+        ctx.fillRect(sx, sy, TILE, TILE);
+        ctx.fillStyle = "#7c6a48";
+        ctx.fillRect(sx, sy, TILE, 3);
+        ctx.fillRect(sx + 4, sy + 8, 2, 2);
+        ctx.fillRect(sx + 11, sy + 12, 2, 2);
+        // waterkleur eroverheen zodat het "onder water" oogt
+        ctx.fillStyle = "rgba(47,127,212,.32)";
+        ctx.fillRect(sx, sy, TILE, TILE);
+        continue;
+      }
+
       if (t === "#" || t === "=") {
         const topOpen = !isSolid(level, tx, ty - 1);
         ctx.fillStyle = def.dirt;
@@ -2429,6 +2453,7 @@ function drawTiles(def) {
         }
       } else if (t === "~") {
         const wave = Math.sin((game.frame * 0.06) + tx * 0.7) * 1.5;
+        const surface = tileAt(level, tx, ty - 1) !== "~";   // bovenrand van het water
         ctx.fillStyle = "#2f7fd4";
         ctx.fillRect(sx, sy, TILE, TILE);
         ctx.fillStyle = "#4aa3ef";
@@ -2436,6 +2461,12 @@ function drawTiles(def) {
         ctx.fillStyle = "rgba(255,255,255,.55)";
         ctx.fillRect(sx + 3, sy + Math.round(wave) + 2, 4, 1);
         ctx.fillRect(sx + 10, sy + Math.round(-wave) + 6, 3, 1);
+        if (surface) {
+          ctx.fillStyle = "#8fccf0";
+          ctx.fillRect(sx, sy, TILE, 2 + Math.round(wave));
+          ctx.fillStyle = "rgba(255,255,255,.7)";
+          ctx.fillRect(sx + 2, sy + Math.round(wave) + 1, 6, 1);
+        }
       }
     }
   }
