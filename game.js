@@ -786,7 +786,7 @@ function loadBg(src) {
    Tekens: # grond   = zwevend platform   ~ water (gevaarlijk)
            P start   H botje   D hond   B vogel   C rivaliserende kat
            S skateboard   J halfpipe-schans (zet er grond onder!)
-           G hemelpoort (einde level)    . leeg
+           G eindpoort  (einde level)    . leeg
    -------------------------------------------------------------------------- */
 const LEVELS = [
   {
@@ -1627,7 +1627,7 @@ function checkInteractions() {
   // in een gat gevallen
   if (p.y > level.height * TILE + 8) killPlayer("val");
 
-  // hemelpoort
+  // eindpoort
   if (level.gateZone && overlaps(p, level.gateZone) && game.state === STATE.PLAY) {
     game.state = STATE.CLEAR;
     game.timer = 0;
@@ -2008,10 +2008,17 @@ function update() {
       break;
 
     case STATE.CLEAR:
-      player.ascend += 0.06;
-      player.y -= 0.5 + player.ascend;
-      player.x += Math.sin(game.timer * 0.08) * 0.3;
-      if (game.timer > 150) {
+      // Jack heeft de eindpoort gehaald: vrolijk sprongetje, geen hemelvaart
+      if (game.timer === 1) {
+        spawnParticles(player.x + player.w / 2, player.y, "#ffe36e", 16, 2.6);
+        player.vy = -3.4;
+      }
+      player.vx = 0;
+      player.vy = Math.min(MAX_FALL, player.vy + GRAVITY);
+      player.y += player.vy;
+      player.onGround = false;
+      resolveAxis(player, "y");
+      if (game.timer > 100) {
         if (game.levelIndex + 1 < LEVELS.length) loadLevel(game.levelIndex + 1);
         else loadBossStage();          // na het laatste level wacht de stofzuiger
       }
@@ -2032,14 +2039,9 @@ function update() {
       break;
 
     case STATE.HUG:
-      // 0-90 knuffel, 90-230 "Kom mee naar huis, Jack!", daarna zweeft Jack omhoog
+      // knuffel bij het baasje, daarna het winscherm (geen hemelvaart)
       if (game.timer === 96) Sound.gate();
-      if (game.timer > 230) {
-        player.ascend += 0.05;
-        player.y -= 0.4 + player.ascend;
-        player.x += Math.sin(game.timer * 0.07) * 0.3;
-      }
-      if (game.timer > 380) { game.state = STATE.WIN; game.timer = 0; Sound.win(); }
+      if (game.timer > 260) { game.state = STATE.WIN; game.timer = 0; Sound.win(); }
       break;
 
     case STATE.OVER:
@@ -2405,11 +2407,6 @@ function drawGate() {
   ctx.fillRect(x + 1, y + 8, 2, g.h - 12);
   ctx.fillRect(x + g.w - 4, y + 8, 2, g.h - 12);
 
-  // engelenvleugels op de boog
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(x - 5, y + 1, 5, 3);
-  ctx.fillRect(x + g.w, y + 1, 5, 3);
-
   // glinstering
   if (Math.floor(game.frame / 12) % 2 === 0) {
     ctx.fillStyle = "rgba(255,255,255,.9)";
@@ -2423,30 +2420,17 @@ function drawPlayer() {
   const blinking = p.invuln > 0 && Math.floor(game.frame / 4) % 2 === 0;
   if (blinking && (game.state === STATE.PLAY || game.state === STATE.BOSS)) return;
 
-  const ascending = game.state === STATE.CLEAR ||
-                    (game.state === STATE.HUG && game.timer > 230);
-
   // met een visje op zak knippert Jack geel: zo zie je dat ze een schild heeft
   const catSet = (p.powered && Math.floor(game.frame / 8) % 2 === 0) ? SPR.jackyPower : SPR.jacky;
 
   let spr;
-  if (ascending || game.state === STATE.DEAD || !p.onGround) spr = catSet.jump;
+  if (game.state === STATE.DEAD || !p.onGround) spr = catSet.jump;
   else if (Math.abs(p.vx) > 0.15) spr = (Math.floor(p.anim / 2) % 2) ? catSet.walkA : catSet.walkB;
   else spr = catSet.idle;
-  if (game.state === STATE.HUG && game.timer <= 230) spr = catSet.idle;
+  if (game.state === STATE.HUG) spr = catSet.idle;
 
   const x = p.x - cam.x - 3;
   const y = p.y - 3;
-
-  // vleugeltjes tijdens de hemelvaart
-  if (ascending) {
-    ctx.fillStyle = "#ffffff";
-    const flap = Math.sin(game.timer * 0.3) * 2;
-    ctx.fillRect(Math.round(x - 4), Math.round(y + 6 + flap), 6, 3);
-    ctx.fillRect(Math.round(x + 14), Math.round(y + 6 - flap), 6, 3);
-    ctx.fillStyle = "#ffe36e";
-    ctx.fillRect(Math.round(x + 6), Math.round(y - 4), 9, 2);
-  }
 
   /** Tekent het skateboard onder Jack. */
   function board(bx, by, flip) {
@@ -2464,7 +2448,7 @@ function drawPlayer() {
   }
 
   // zacht schaduwtje zodat Jack ook tegen een drukke tekening goed te zien is
-  if (!ascending && game.state !== STATE.DEAD) {
+  if (game.state !== STATE.DEAD) {
     ctx.fillStyle = "rgba(0,0,0,.22)";
     const shy = p.onGround ? p.y + p.h - 1 : p.y + p.h + 3;
     ctx.fillRect(Math.round(x + 2), Math.round(shy - cam.y), 14, 3);
@@ -2688,17 +2672,10 @@ function drawTitle() {
   text("JACK", cx, 34, 30, "#fff6d0", "center");
   text("op avontuur", cx, 66, 14, "#b8336a", "center");
 
-  // Jack met vleugels
-  const bob = Math.sin(game.frame * 0.06) * 3;
-  const px = cx - 8, py = 100 + bob;
-  ctx.fillStyle = "#ffffff";
-  const flap = Math.sin(game.frame * 0.18) * 2;
-  ctx.fillRect(Math.round(px - 7), Math.round(py + 7 + flap), 7, 3);
-  ctx.fillRect(Math.round(px + 16), Math.round(py + 7 - flap), 7, 3);
-  blit(SPR.jacky.idle, px, py);
-  // aureool
-  ctx.fillStyle = "#ffe36e";
-  ctx.fillRect(Math.round(px + 4), Math.round(py - 5), 9, 2);
+  // Jack die vrolijk op en neer wipt
+  const bob = Math.abs(Math.sin(game.frame * 0.09)) * 4;
+  const px = cx - 8, py = 104 - bob;
+  blit(SPR.jacky.walkB, px, py);
 
   if (Math.floor(game.frame / 30) % 2 === 0) {
     text("DRUK OP SPATIE OM TE BEGINNEN", cx, 148, 10, "#8f2f6b", "center", false);
