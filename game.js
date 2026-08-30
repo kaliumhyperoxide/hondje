@@ -2943,7 +2943,7 @@ function drawSwing() {
   if (t > 15 && t < 105) {
     const seatX = pivotX + Math.sin(angle) * armLen;
     const seatY = pivotY + Math.cos(angle) * armLen;
-    drawSpeech(seatX, seatY - 32, "Prrr... prrr...");
+    drawSpeech(seatX, seatY - 32, "Woef... woef...");
   }
 }
 
