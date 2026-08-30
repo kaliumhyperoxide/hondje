@@ -29,6 +29,10 @@ const START_LIVES = 7;       // iets krapper dan het origineel (9)
 const HEARTS_PER_LIFE = 15;  // om de 15 botjes een extra leven
 const BOSS_JUMPS = 8;        // zo vaak moet je over de stofzuiger springen
 
+const SKATE_MAX  = 3.8;      // topsnelheid op het skateboard (lopend is het 2.4)
+const SKATE_FRIC = 0.05;     // op het board rol je bijna zonder af te remmen
+const RAMP_LIFT  = 3.4;      // basiskracht van een halfpipe-schans (schaalt mee met je vaart)
+
 const canvas = document.getElementById("game");
 const ctx    = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
@@ -781,6 +785,7 @@ function loadBg(src) {
    Levels
    Tekens: # grond   = zwevend platform   ~ water (gevaarlijk)
            P start   H botje   D hond   B vogel   C rivaliserende kat
+           S skateboard   J halfpipe-schans (zet er grond onder!)
            G hemelpoort (einde level)    . leeg
    -------------------------------------------------------------------------- */
 const LEVELS = [
@@ -804,7 +809,7 @@ const LEVELS = [
       ".....HH.............|....................|......HH............|.....==.............|.....HH.............|.........HHH........",
       ".....==.............|...H................|......==............|...HH...............|.....==.............|.........===........",
       "....................|...==...............|....................|...==......H........|.............H......|....H...............",
-      "..P......H....H.....|......D.......H.....|..H......H....D.....|....H........H......|..D......H......H...|....H....D......G...",
+      "..P...S....H...H....|......D...J...H.....|..H......H....D.....|....H...J....H......|..D....J.H.....H....|....H....D.....H.G..",
       "####################|##########..########|########~~~#########|####################|###########..#######|####################",
       "####################|##########..########|########~~~#########|####################|###########..#######|####################",
     ],
@@ -1117,6 +1122,7 @@ function parseLevel(def) {
   const lvl = {
     def, width, height: grid.length, grid,
     hearts: [], fish: [], mice: [], enemies: [], particles: [],
+    skates: [], ramps: [],
     gate: null, spawn: { x: 32, y: 32 },
     clouds: [], decor: [],
     platforms: (def.platforms || []).map(makeMovingPlatform),
@@ -1132,6 +1138,8 @@ function parseLevel(def) {
         case "H": lvl.hearts.push({ x: px + 4, y: py + 4, w: 9, h: 8, got: false, t: Math.random() * 6 }); grid[y][x] = "."; break;
         case "F": lvl.fish.push({ x: px - 1, y: py + 2, w: 17, h: 10, got: false, expired: false, life: 0, t: Math.random() * 6 }); grid[y][x] = "."; break;
         case "M": lvl.mice.push(makeMouse(px, py)); grid[y][x] = "."; break;
+        case "S": lvl.skates.push({ x: px + 1, y: py + 6, w: 15, h: 8, got: false, t: Math.random() * 6 }); grid[y][x] = "."; break;
+        case "J": lvl.ramps.push({ x: px - 3, y: py - 6, w: TILE + 6, h: TILE + 10 }); grid[y][x] = "."; break;
         case "D": lvl.enemies.push(makeDog(px, py)); grid[y][x] = "."; break;
         case "B": lvl.enemies.push(makeBird(px, py)); grid[y][x] = "."; break;
         case "C": lvl.enemies.push(makeRival(px, py)); grid[y][x] = "."; break;
@@ -1253,6 +1261,7 @@ function makePlayer(spawn) {
     safe: { x: spawn.x, y: spawn.y }, safeTimer: 0,
     ascend: 0,
     powered: false, platform: null,
+    skating: false, spin: 0, spinAngle: 0, spinDir: 1, launched: false,
   };
 }
 
@@ -1260,16 +1269,18 @@ function movePlayer(p) {
   // --- meebewegen met een zwevend platform waar je op staat ---
   if (p.platform) { p.x += p.platform.dx; p.y += p.platform.dy; }
 
-  // --- horizontaal ---
+  // --- horizontaal ---  (op het skateboard: sneller en bijna geen wrijving)
+  const fric = p.skating ? SKATE_FRIC : FRICTION;
+  const top  = p.skating ? SKATE_MAX  : MAX_RUN;
   const dir = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
   if (dir !== 0) {
-    p.vx += dir * ACCEL;
-    p.facing = dir;
+    p.vx += dir * ACCEL * (p.skating ? 0.7 : 1);
+    if (p.spin === 0) p.facing = dir;
   } else {
-    if (p.vx > 0) p.vx = Math.max(0, p.vx - FRICTION);
-    else if (p.vx < 0) p.vx = Math.min(0, p.vx + FRICTION);
+    if (p.vx > 0) p.vx = Math.max(0, p.vx - fric);
+    else if (p.vx < 0) p.vx = Math.min(0, p.vx + fric);
   }
-  p.vx = Math.max(-MAX_RUN, Math.min(MAX_RUN, p.vx));
+  p.vx = Math.max(-top, Math.min(top, p.vx));
 
   p.x += p.vx;
   resolveAxis(p, "x");
@@ -1308,8 +1319,18 @@ function movePlayer(p) {
     p.coyote = 0; p.buffer = 0;
     Sound.jump();
   }
-  // korte tik = lagere sprong
-  if (!keys.jump && p.vy < -2) p.vy = -2;
+  // korte tik = lagere sprong (geldt NIET voor een lancering van de halfpipe)
+  if (!keys.jump && p.vy < -2 && !p.launched) p.vy = -2;
+  if (p.vy >= 0 || p.onGround) p.launched = false;
+
+  // --- salto op de halfpipe ---
+  if (p.spin > 0) {
+    p.spin--;
+    p.spinAngle += p.spinDir * 0.34;
+    if (p.onGround) { p.spin = 0; p.spinAngle = 0; }   // netjes landen = klaar met draaien
+  } else {
+    p.spinAngle = 0;
+  }
 
   // --- animatie ---
   if (Math.abs(p.vx) > 0.15) p.anim += Math.abs(p.vx) * 0.35; else p.anim = 0;
@@ -1521,12 +1542,50 @@ function checkInteractions() {
     }
   }
 
+  // skateboard oppakken
+  for (const s of level.skates) {
+    if (s.got) continue;
+    if (overlaps(p, s)) {
+      s.got = true;
+      p.skating = true;
+      Sound.power();
+      spawnParticles(s.x + 7, s.y + 4, "#7ec7ff", 10, 1.8);
+      showPopup("SKATEBOARD!", "#7ec7ff");
+    }
+  }
+
+  // halfpipe / schans: met vaart erin -> lanceren. Op het board veel hoger, plus een salto.
+  for (const r of level.ramps) {
+    if (p.onGround && Math.abs(p.vx) > 1.1 && overlaps(p, r)) {
+      const power = RAMP_LIFT + Math.abs(p.vx) * (p.skating ? 1.5 : 0.7);
+      p.vy = -power;
+      p.onGround = false;
+      p.coyote = 0;
+      p.launched = true;
+      spawnParticles(p.x + p.w / 2, p.y + p.h, "#ffffff", 7, 2.2);
+      if (p.skating) {
+        p.spin = 26 + Math.round(Math.abs(p.vx) * 7);
+        p.spinDir = p.vx < 0 ? -1 : 1;
+        Sound.dodge();
+      }
+      Sound.jump();
+    }
+  }
+
   // vijanden
   for (const en of level.enemies) {
     if (en.dead) continue;
     if (!overlaps(p, en)) continue;
 
     const fromAbove = p.vy > 0 && (p.y + p.h) - p.vy <= en.y + 6;
+    const trick = p.spin > 0;   // tijdens een salto ram je vijanden gewoon omver
+
+    if (trick && en.type !== "car") {
+      en.dead = true; en.vy = -2;
+      Sound.stomp();
+      spawnParticles(en.x + en.w / 2, en.y, "#ffe08a", 7, 1.8);
+      continue;
+    }
 
     if (en.type === "car") {
       // Een auto gaat niet kapot, maar op het dak landen mag: je stuitert weg.
@@ -1588,6 +1647,11 @@ function hurtPlayer(knockDir) {
     // het visje-schild vangt deze klap op: geen leven kwijt, wel weer normaal
     p.powered = false;
     Sound.shield();
+  } else if (p.skating) {
+    // de klap schopt alleen het skateboard onder Jack vandaan: geen leven kwijt
+    p.skating = false; p.spin = 0; p.spinAngle = 0;
+    Sound.shield();
+    spawnParticles(p.x + p.w / 2, p.y + p.h, "#a97444", 8, 2.2);
   } else {
     game.lives--;
     Sound.hurt();
@@ -1599,6 +1663,7 @@ function killPlayer(cause) {
   const p = player;
   if (game.state !== STATE.PLAY) return;
   p.powered = false;   // een val in een gat of het water kost ook de vissenkracht
+  p.skating = false; p.spin = 0; p.spinAngle = 0;
   game.lives--;
   Sound.meow();
   if (game.lives <= 0) { gameOver(); return; }
@@ -2359,7 +2424,77 @@ function drawPlayer() {
     ctx.fillRect(Math.round(x + 6), Math.round(y - 4), 9, 2);
   }
 
-  blit(spr, x, y, p.facing < 0);
+  /** Tekent het skateboard onder Jack. */
+  function board(bx, by, flip) {
+    const d = flip ? -1 : 1;
+    ctx.fillStyle = "#8a5730";
+    ctx.fillRect(Math.round(bx), Math.round(by), 16, 3);
+    ctx.fillStyle = "#c98a4a";
+    ctx.fillRect(Math.round(bx + 1), Math.round(by), 14, 1);
+    ctx.fillStyle = "#241f1c";
+    ctx.fillRect(Math.round(bx + 2), Math.round(by + 3), 3, 2);
+    ctx.fillRect(Math.round(bx + 11), Math.round(by + 3), 3, 2);
+    // opgewipte neus
+    ctx.fillStyle = "#8a5730";
+    ctx.fillRect(Math.round(bx + (d > 0 ? 15 : 0)), Math.round(by - 2), 1, 3);
+  }
+
+  // zacht schaduwtje zodat Jack ook tegen een drukke tekening goed te zien is
+  if (!ascending && game.state !== STATE.DEAD) {
+    ctx.fillStyle = "rgba(0,0,0,.22)";
+    const shy = p.onGround ? p.y + p.h - 1 : p.y + p.h + 3;
+    ctx.fillRect(Math.round(x + 2), Math.round(shy - cam.y), 14, 3);
+  }
+
+  if (p.spin > 0) {
+    // salto: sprite + board samen ronddraaien
+    const cx = x + spr.width / 2, cy = y + spr.height / 2;
+    ctx.save();
+    ctx.translate(Math.round(cx), Math.round(cy));
+    ctx.rotate(p.spinAngle);
+    ctx.drawImage(spr, Math.round(-spr.width / 2), Math.round(-spr.height / 2));
+    ctx.fillStyle = "#8a5730";
+    ctx.fillRect(-8, Math.round(spr.height / 2 - 3), 16, 3);
+    ctx.restore();
+  } else {
+    if (p.skating) board(x + 1, p.y - cam.y + p.h - 4, p.facing < 0);
+    blit(spr, x, y, p.facing < 0);
+  }
+}
+
+/** Skateboard dat nog op de grond ligt om op te rapen. */
+function drawSkates() {
+  for (const s of level.skates) {
+    if (s.got) continue;
+    const bx = s.x - cam.x, by = s.y + Math.sin(s.t + game.frame * 0.08) * 1.5;
+    ctx.fillStyle = "#8a5730";
+    ctx.fillRect(Math.round(bx), Math.round(by + 4), 15, 3);
+    ctx.fillStyle = "#c98a4a";
+    ctx.fillRect(Math.round(bx + 1), Math.round(by + 4), 13, 1);
+    ctx.fillStyle = "#241f1c";
+    ctx.fillRect(Math.round(bx + 2), Math.round(by + 7), 3, 2);
+    ctx.fillRect(Math.round(bx + 10), Math.round(by + 7), 3, 2);
+  }
+}
+
+/** De halfpipe-schansen (J-tegels): een houten kicker die naar rechts omhoog krult. */
+function drawRamps() {
+  const gt = (ROWS - 2) * TILE;
+  for (const r of level.ramps) {
+    const rx = r.x + 3 - cam.x;
+    if (rx < -TILE * 2 || rx > VIEW_W + TILE) continue;
+    ctx.fillStyle = "#a06a3c";
+    ctx.beginPath();
+    ctx.moveTo(rx, gt);
+    ctx.quadraticCurveTo(rx + TILE * 0.8, gt, rx + TILE, gt - 15);
+    ctx.lineTo(rx + TILE, gt);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#7a4a28";
+    ctx.fillRect(Math.round(rx + TILE - 2), Math.round(gt - 19), 3, 8);
+    ctx.fillStyle = "rgba(255,255,255,.25)";
+    ctx.fillRect(Math.round(rx + 2), Math.round(gt - 3), TILE - 3, 1);
+  }
 }
 
 /* ---- eindbaas en hondje ------------------------------------------------ */
@@ -2476,6 +2611,14 @@ function drawHUD() {
   // blijvend schild-icoontje zolang de vissenkracht actief is
   if (player && player.powered && Math.floor(game.frame / 8) % 2 === 0) {
     blit(SPR.fish, hx + 34, 2);
+  }
+  // skateboard-icoontje zolang Jack skate't
+  if (player && player.skating) {
+    ctx.fillStyle = "#8a5730";
+    ctx.fillRect(hx + 34, 8, 15, 3);
+    ctx.fillStyle = "#241f1c";
+    ctx.fillRect(hx + 36, 11, 3, 2);
+    ctx.fillRect(hx + 44, 11, 3, 2);
   }
 
   if (game.stage === "boss") {
@@ -2787,8 +2930,10 @@ function render() {
   if (game.stage === "charlie") drawGreenery();
   drawDecor(def);
   drawTiles(def);
+  drawRamps();
   drawGate();
   drawPlatforms();
+  drawSkates();
   drawHearts();
   drawFish();
   drawMice();
