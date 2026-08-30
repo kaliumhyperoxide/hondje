@@ -1,6 +1,6 @@
 /* ==========================================================================
-   Jack op Avontuur
-   Een 2D platformspel met Jack, de hond uit "King Popla".
+   hondje - een 2D platformspel met Jack de hond.
+   Gemaakt door Charlie en Silke. Sprite van Jack uit MakeCode Arcade (King Popla).
    De gameplay is overgenomen van "Jacky goes to Heaven" van Guido van Diepen:
    https://guidovandiepen.github.io/jackygoestoheaven/
    Alles (sprites, geluid, levels) zit in code - geen externe bestanden.
@@ -36,7 +36,7 @@ ctx.imageSmoothingEnabled = false;
 /* --------------------------------------------------------------------------
    Sprites: kleine pixelmaps die naar een offscreen canvas worden gebakken
    -------------------------------------------------------------------------- */
-/* Jack, de hond uit King Popla. De frames komen recht uit de MakeCode-Arcade
+/* Jack, de hond (sprite uit het King Popla-project). De frames komen recht uit de MakeCode-Arcade
    sprite (img``): 1 teken = 1 pixel, en dit zijn de kleuren uit het Arcade-palet.
    Jack kijkt in de bron naar links; bakeJack() spiegelt en verkleint hem zodat
    hij past bij de rest van de wereld en naar rechts kijkt (net als de kat). */
@@ -351,7 +351,7 @@ const VAC_BODY = [
   "....oo........oo..........",
 ];
 
-// King Popla: het baasje van Jack. De armen worden in code getekend.
+// hondje: het baasje van Jack. De armen worden in code getekend.
 const PAL_CHAR = {
   o: "#3a2a1e", h: "#ffe9a0", s: "#f6cfae", e: "#4aa3ef",
   f: "#dd9a72", t: "#ff8fb0", k: "#5f9be0", b: "#5a4a7a",
@@ -550,7 +550,7 @@ const ADAM_TOWER_MAP = [
   "........oooooooooooooooooooo........",
 ];
 
-// Tuintje bij King Popla: witte plantenbak met bloemetjes, bijtje en vogelhuisje.
+// Tuintje bij hondje: witte plantenbak met bloemetjes, bijtje en vogelhuisje.
 const PAL_PLANTER = {
   o: "#7a7a86", b: "#f4f4f0", r: "#c7c7c0", d: "#5c4530",
   g: "#4caf50", p: "#ff6f91", y: "#ffcf4d", v: "#c81f4d",
@@ -887,7 +887,7 @@ const LEVELS = [
   },
 ];
 
-/* Vlakke arena's voor de eindbaas en voor King Popla: precies één scherm breed. */
+/* Vlakke arena's voor de eindbaas en voor hondje: precies één scherm breed. */
 const FLAT_ROWS = [
   "........................",
   "........................",
@@ -916,7 +916,7 @@ const BOSS_STAGE = {
 };
 
 const CHARLIE_STAGE = {
-  name: "King Popla",
+  name: "Thuis",
   sky: ["#ffb3d0", "#fff0c4"],
   hill: "#e0a6d8", hillDark: "#c186c0",
   grass: "#9adcc6", grassDark: "#77b8a4",
@@ -1707,7 +1707,7 @@ function updateBoss() {
 }
 
 /* --------------------------------------------------------------------------
-   King Popla: het baasje. Spring in zijn armen.
+   hondje: het baasje. Spring in zijn armen.
    -------------------------------------------------------------------------- */
 const charlie = { x: 0, y: 0, w: 20, h: 42, arms: 0, caught: false };
 
@@ -1720,7 +1720,7 @@ function resetCharlie() {
 }
 
 /* --------------------------------------------------------------------------
-   Tuintje bij King Popla: plantenbakken met bijen, en een vogelhuisje met musjes.
+   Tuintje bij hondje: plantenbakken met bijen, en een vogelhuisje met musjes.
    -------------------------------------------------------------------------- */
 const garden = {
   planters: [
@@ -2071,7 +2071,7 @@ function drawAdamTower(def) {
   blit(SPR.adamTower, x, anchor - SPR.adamTower.height);
 }
 
-/** Wat losse struiken en boompjes ver op de achtergrond bij King Popla, voor meer groen. */
+/** Wat losse struiken en boompjes ver op de achtergrond bij hondje, voor meer groen. */
 function drawGreenery() {
   const groundTop = (ROWS - 2) * TILE;   // struiken staan vóór het terras, niet erdoorheen verstopt
   const bushes = [
@@ -2346,7 +2346,7 @@ function drawPlayer() {
   blit(spr, x, y, p.facing < 0);
 }
 
-/* ---- eindbaas en King Popla ------------------------------------------------ */
+/* ---- eindbaas en hondje ------------------------------------------------ */
 function drawBoss() {
   let x = boss.x, y = boss.y;
 
@@ -2470,7 +2470,7 @@ function drawHUD() {
       ctx.fillRect(VIEW_W / 2 - 40 + i * 8, 4, 6, 6);
     }
   } else if (game.stage === "charlie") {
-    text("KING POPLA", VIEW_W - 4, 3, 9, "#ffd6e0", "right");
+    text("THUIS", VIEW_W - 4, 3, 9, "#ffd6e0", "right");
     if (!charlie.caught) text("Spring in zijn armen!", VIEW_W / 2, 3, 9, "#ffffff", "center");
   } else {
     text(`LEVEL ${game.levelIndex + 1}/${LEVELS.length}`, VIEW_W - 4, 3, 9, "#ffffff", "right");
@@ -2520,7 +2520,7 @@ function drawTitle() {
   if (Math.floor(game.frame / 30) % 2 === 0) {
     text("DRUK OP SPATIE OM TE BEGINNEN", cx, 148, 10, "#8f2f6b", "center", false);
   }
-  text("Jack zoekt zijn baasje King Popla", cx, 176, 9, "#5c3a7a", "center", false);
+  text("Breng Jack veilig thuis", cx, 176, 9, "#5c3a7a", "center", false);
   const beste = sortScores(loadScores())[0];
   if (beste) {
     text(`Beste: ${String(beste.name).toUpperCase()} - ${beste.hearts} hartjes`,
@@ -2564,7 +2564,7 @@ function drawOverlays() {
 
   if (game.state === STATE.BOSSWIN) {
     text("STOFZUIGER KAPOT!", cx, 60, 16, "#fff6d0", "center");
-    text("Nu snel naar King Popla...", cx, 80, 10, "#ffffff", "center");
+    text("Nu snel naar huis...", cx, 80, 10, "#ffffff", "center");
   }
 
   if (game.state === STATE.HUG) {
@@ -2572,7 +2572,7 @@ function drawOverlays() {
       drawSpeech(charlie.x - cam.x + 7, charlie.y - 22, "Kom mee naar huis, Jack!");
     }
     if (game.timer > 250) {
-      text("Jack heeft King Popla gevonden...", cx, 40, 10, "#ffffff", "center");
+      text("Jack is eindelijk thuis...", cx, 40, 10, "#ffffff", "center");
     }
   }
 
@@ -2679,7 +2679,7 @@ function drawStory() {
 
   const regels = [
     "Hond Jack is zijn baasje kwijt.",
-    "King Popla is nergens te vinden...",
+    "Zijn baasje is nergens te vinden...",
     "",
     "Dus gaat Jack op pad: langs katten,",
     "vogels, boze honden en drukke wegen.",
@@ -2687,7 +2687,7 @@ function drawStory() {
     "Verzamel hartjes: elke 20 geeft een",
     "extra leven om langer door te gaan.",
     "",
-    "Vindt hij King Popla, dan is hij weer thuis.",
+    "Als hij thuiskomt, is alles weer goed.",
   ];
   text("HET VERHAAL", cx, 22, 14, "#ffe36e", "center");
   regels.forEach((r, i) => text(r, cx, 50 + i * 13, 10, "#ffffff", "center"));
