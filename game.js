@@ -817,7 +817,7 @@ const LEVELS = [
   {
     name: "Langs de Beek",
     sky: ["#f4b8c8", "#ffe0d0"],
-    bg: loadBg("achtergrond-beek.jpg"), bgHorizon: 0.42,
+    bg: loadBg("achtergrond-beek-v2.jpg"), bgHorizon: 0.42,
     hill: "#7bbf5e", hillDark: "#5c9a45",
     grass: "#6fc24f", grassDark: "#4f9c37",
     dirt: "#7a5a38", dirtDark: "#5a4228",
