@@ -2215,9 +2215,17 @@ function update() {
       break;
 
     case STATE.HUG:
-      // knuffel bij het baasje, daarna het winscherm (geen hemelvaart)
+      // knuffel bij het baasje... dat een fee blijkt te zijn
       if (game.timer === 96) Sound.gate();
-      if (game.timer > 260) { game.state = STATE.WIN; game.timer = 0; Sound.win(); }
+      if (game.timer === 128) {   // de onthulling: vleugels + toverstof
+        Sound.power();
+        spawnParticles(charlie.x + charlie.w / 2, charlie.y + 16, "#ffe9a0", 24, 3.4);
+        spawnParticles(charlie.x + charlie.w / 2, charlie.y + 6, "#bfe6ff", 14, 2.6);
+      }
+      if (game.timer % 24 === 0 && game.timer > 130) {
+        spawnParticles(charlie.x + charlie.w / 2 + (Math.random() - 0.5) * 26, charlie.y + 10, "#fff2c0", 3, 1.6);
+      }
+      if (game.timer > 300) { game.state = STATE.WIN; game.timer = 0; Sound.win(); }
       break;
 
     case STATE.OVER:
@@ -2767,6 +2775,32 @@ function drawCharlie() {
   const x = Math.round(charlie.x - cam.x);
   const y = Math.round(charlie.y);
 
+  // De onthulling: het baasje blijkt een fee. Vleugels + gloed verschijnen tijdens de knuffel.
+  const magic = game.state !== STATE.HUG ? 1 : Math.min(1, Math.max(0, (game.timer - 120) / 40));
+
+  if (magic > 0) {
+    ctx.save();
+    ctx.globalAlpha = magic;
+    // zachte feeën-gloed
+    const cx = x + charlie.w / 2, cy = y + 18;
+    const glow = ctx.createRadialGradient(cx, cy, 2, cx, cy, 30);
+    glow.addColorStop(0, "rgba(255,240,180,.5)");
+    glow.addColorStop(1, "rgba(255,240,180,0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(x - 24, y - 8, charlie.w + 48, 60);
+    // fladderende vleugels achter de romp
+    const flap = Math.sin(game.frame * 0.28) * 2;
+    ctx.fillStyle = "rgba(190,235,255,.6)";
+    ctx.fillRect(Math.round(x - 8 - flap), y + 4, 7, 16);
+    ctx.fillRect(Math.round(x - 5 - flap), y + 1, 5, 22);
+    ctx.fillRect(Math.round(x + charlie.w + 1 + flap), y + 4, 7, 16);
+    ctx.fillRect(Math.round(x + charlie.w - 1 + flap), y + 1, 5, 22);
+    ctx.fillStyle = "rgba(255,255,255,.4)";
+    ctx.fillRect(Math.round(x - 4 - flap), y + 3, 2, 12);
+    ctx.fillRect(Math.round(x + charlie.w + 2 + flap), y + 3, 2, 12);
+    ctx.restore();
+  }
+
   // armen: open als Jack dichtbij is, dicht bij de knuffel
   const open = charlie.caught ? 0 : charlie.arms;
   const armY = y + 16;
@@ -2783,6 +2817,21 @@ function drawCharlie() {
   ctx.fillRect(rompR, armY - lift, reach, 2);
 
   blit(SPR.charlie, x, y);
+
+  // toverstokje met twinkelend sterretje
+  if (magic > 0) {
+    ctx.save();
+    ctx.globalAlpha = magic;
+    const sx = rompR + reach + 3, sy = armY - lift - 12;
+    ctx.fillStyle = "#c9a06b";
+    ctx.fillRect(sx - 1, sy + 2, 2, 8);
+    const tw = Math.floor(game.frame / 8) % 2 === 0;
+    ctx.fillStyle = tw ? "#fff6c8" : "#ffe066";
+    ctx.fillRect(sx - 2, sy, 5, 5);
+    ctx.fillRect(sx - 1, sy - 2, 3, 9);
+    ctx.fillRect(sx - 3, sy + 1, 9, 3);
+    ctx.restore();
+  }
 
   // zwevende botjes tijdens de knuffel
   if (game.state === STATE.HUG) {
@@ -2863,7 +2912,7 @@ function drawHUD() {
     }
   } else if (game.stage === "charlie") {
     text("THUIS", VIEW_W - 4, 3, 9, "#ffd6e0", "right");
-    if (!charlie.caught) text("Spring in zijn armen!", VIEW_W / 2, 3, 9, "#ffffff", "center");
+    if (!charlie.caught) text("Spring in de armen!", VIEW_W / 2, 3, 9, "#ffffff", "center");
   } else {
     text(`LEVEL ${game.levelIndex + 1}/${LEVELS.length}`, VIEW_W - 4, 3, 9, "#ffffff", "right");
     // voortgangsbalk naar huis
@@ -2937,9 +2986,9 @@ function drawOverlays() {
       text("De Stofzuiger", cx, p.y + 32, 10, "#ffd6e0", "center");
       text(`Spring er ${BOSS_JUMPS}x overheen!`, cx, p.y + 46, 9, "#cfe6ff", "center");
     } else if (game.stage === "charlie") {
-      text("CHARLIE!", cx, p.y + 12, 14, "#ffffff", "center");
-      text("Daar is je baasje", cx, p.y + 32, 10, "#ffd6e0", "center");
-      text("Spring in zijn armen", cx, p.y + 46, 9, "#cfe6ff", "center");
+      text("JE BAASJE!", cx, p.y + 12, 14, "#ffffff", "center");
+      text("Daar wacht je baasje", cx, p.y + 32, 10, "#ffd6e0", "center");
+      text("Spring in de armen", cx, p.y + 46, 9, "#cfe6ff", "center");
     } else {
       text(`LEVEL ${game.levelIndex + 1}`, cx, p.y + 12, 14, "#ffffff", "center");
       text(LEVELS[game.levelIndex].name, cx, p.y + 32, 10, "#ffd6e0", "center");
@@ -2953,11 +3002,13 @@ function drawOverlays() {
   }
 
   if (game.state === STATE.HUG) {
-    if (game.timer > 96 && game.timer < 240) {
-      drawSpeech(charlie.x - cam.x + 7, charlie.y - 22, "Kom mee naar huis, Jack!");
+    if (game.timer > 96 && game.timer < 128) {
+      drawSpeech(charlie.x - cam.x + 7, charlie.y - 22, "Kom maar, Jack!");
+    } else if (game.timer >= 128 && game.timer < 300) {
+      drawSpeech(charlie.x - cam.x + 7, charlie.y - 22, "Verrassing... ik ben een fee!");
     }
-    if (game.timer > 250) {
-      text("Jack is eindelijk thuis...", cx, 40, 10, "#ffffff", "center");
+    if (game.timer > 300) {
+      text("De fee brengt Jack veilig thuis...", cx, 40, 10, "#ffffff", "center");
     }
   }
 
@@ -3043,7 +3094,7 @@ function drawWin() {
   const cx = VIEW_W / 2;
 
   text("JACK IS WEER THUIS!", cx, 14, 16, "#8f2f6b", "center");
-  text("Samen weer thuis...", cx, 34, 9, "#5f4a8f", "center", false);
+  text("De fee bracht hem veilig thuis...", cx, 34, 9, "#5f4a8f", "center", false);
 
   drawSwing();
 
