@@ -33,6 +33,12 @@ const SKATE_MAX  = 3.3;      // topsnelheid op het skateboard (lopend is het 2.4
 const SKATE_FRIC = 0.09;     // op het board rem je zacht af, je glijdt door
 const RAMP_LIFT  = 3.4;      // basiskracht van een halfpipe-schans (schaalt mee met je vaart)
 
+const SWIM_SINK = 0.08;      // hoe snel Jack zakt in het water
+const SWIM_RISE = 0.36;      // omhoog peddelen met spatie/omhoog ingedrukt
+const SWIM_VMAX = 1.8;       // max verticale snelheid in het water
+const SWIM_HMAX = 1.7;       // horizontale topsnelheid in het water
+const SWIM_DRAG = 0.90;      // horizontale demping per frame in het water
+
 const canvas = document.getElementById("game");
 const ctx    = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
@@ -259,6 +265,19 @@ const BIRD_BODY = [
   "..oggggggo..",
   "...oooooo...",
   "............",
+];
+
+// Eend die op het water dobbert.
+const PAL_DUCK = { o: "#2e2113", w: "#fdf5e2", e: "#241f1c", b: "#f0912e", d: "#e6d3a8" };
+const DUCK_MAP = [
+  "...oooo......",
+  "..owwwwo.....",
+  ".owwewwo.....",
+  "bowwwwwo.....",
+  "bowwwwwwooo..",
+  ".owwwwwwwwwo.",
+  ".owwddddwwwwo",
+  "..ooooooooo..",
 ];
 
 // Botje (hondenkluif) in plaats van een hartje. Var-namen blijven "HEART" zodat
@@ -742,6 +761,7 @@ const SPR = {
     b: bake(DOG_BODY.concat(DOG_LEGS.b), PAL_DOG),
   },
   bird: bake(BIRD_BODY, PAL_BIRD),
+  duck: bake(DUCK_MAP, PAL_DUCK),
   sparrow: bake(BIRD_BODY, PAL_SPARROW),
   heart: bake(HEART_MAP, PAL_HEART),
   fish: bake(FISH_MAP, PAL_FISH),
@@ -812,6 +832,37 @@ const LEVELS = [
       "..P...S....H...H....|......D.J.....H.....|..H......H....D.....|..S.H...J....H......|..D....J.H.....H....|....H....D.....H.G..",
       "####################|##########..########|########~~~#########|####################|###########..#######|####################",
       "####################|##########..########|########~~~#########|####################|###########..#######|####################",
+    ],
+  },
+  {
+    name: "Het Grote Meer",
+    sky: ["#7ec8f0", "#cdeeff"],
+    swim: true,                    // hier is water NIET dodelijk: Jack zwemt erin
+    hill: "#5a86b0", hillDark: "#456a8f",
+    grass: "#6fae6a", grassDark: "#4f8a4a",
+    dirt: "#7a5a3a", dirtDark: "#5a4228",
+    deep: "#173650",
+    // waterlelie-bladeren: rustpunten waar je van onderaf op kunt klimmen (blokkeren niet zijwaarts)
+    platforms: [
+      { x: 300,  y: 132, w: 34, h: 6, axis: "x", range: 0, speed: 0 },
+      { x: 780,  y: 130, w: 34, h: 6, axis: "x", range: 0, speed: 0 },
+      { x: 1260, y: 132, w: 34, h: 6, axis: "x", range: 0, speed: 0 },
+    ],
+    rows: [
+      "....................|....................|....................|....................|....................|....................",
+      "....................|....................|....................|....................|....................|....................",
+      "....................|....................|....................|....................|....................|....................",
+      "....................|....................|....................|....................|....................|....................",
+      "....................|....................|....................|....................|....................|....................",
+      "....................|.........B..........|....................|....................|....................|.B..................",
+      "....................|....................|....................|....................|....................|....................",
+      "....................|....................|....................|....................|....................|....................",
+      "....~~~~~E~~~~~~~~~~|~~~~~E~~~~~~~~~~~~~~|~~~~~E~~~~~~~~~~~~~~|~~~E~~~~~~~~~~~~~~~~|E~~~~~~~~~~~~~~~~E~~|~~~~~~~~~E~~~.......",
+      "....~~~~~~~H~~~~~~~~|~~~~~~~~~~~~~~~~H~~~|~~~~~~~~~~~~~~~~~~~~|~H~~~~~~~~~~~~~~~~~~|~~~~~~~~H~~~~~~~~~~~|~~~~~~~~~~~~~.......",
+      "....~~~~~~~~~~~~~~~H|~~~~~~~~~~~~~~~~~~~~|~~~~H~~~~~~~~~~~~~~~|~~~~~~~~~~H~F~~~~~~~|~~~~~~~~~~~~~~~~H~~~|~~~~~~~~~~~~~.......",
+      "..P.~~~~~~~~~~~~~~~~|~~~~~~~H~~~~~~~~~~~~|~~~~~~~~~~~~H~~~~~~~|~~~~~~~~~~~~~~~~~~~H|~~~~~~~~~~~~~~~~~~~~|~~~~~H~~~~~~~...G...",
+      "#####~~~~~~~~~~~~~~~|~~~~~~~~~~~~~~~~~~~~|~~~~~~~~~~~~~~~~~~~~|~~~~~~~~~~~~~~~~~~~~|~~~~~~~~~~~~~~~~~~~~|~~~~~~~~~~~~~#######",
+      "####################|####################|####################|####################|####################|####################",
     ],
   },
   {
@@ -968,6 +1019,8 @@ const Sound = {
   hurt()  { this.tone(400, 0.35, "sawtooth", 0.06, 90); },
   meow()  { this.tone(620, 0.18, "sine", 0.06, 380); },
   bark()  { this.tone(300, 0.09, "square", 0.07, 150); this.tone(260, 0.11, "square", 0.07, 120, 0.12); },
+  quack() { this.tone(420, 0.09, "sawtooth", 0.045, 300); this.tone(360, 0.10, "sawtooth", 0.045, 260, 0.09); },
+  splash(){ this.tone(600, 0.14, "sine", 0.05, 180); },
   gate()  { [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.20, "square", 0.05, null, i * 0.11)); },
   extraLife() { [659, 880, 1175].forEach((f, i) => this.tone(f, 0.16, "triangle", 0.06, null, i * 0.09)); },
   power() { [740, 988, 1480].forEach((f, i) => this.tone(f, 0.14, "sine", 0.06, null, i * 0.07)); },
@@ -1125,7 +1178,7 @@ function parseLevel(def) {
   const lvl = {
     def, width, height: grid.length, grid,
     hearts: [], fish: [], mice: [], enemies: [], particles: [],
-    skates: [], ramps: [],
+    skates: [], ramps: [], ducks: [],
     gate: null, spawn: { x: 32, y: 32 },
     clouds: [], decor: [],
     platforms: (def.platforms || []).map(makeMovingPlatform),
@@ -1141,6 +1194,7 @@ function parseLevel(def) {
         case "H": lvl.hearts.push({ x: px + 4, y: py + 4, w: 9, h: 8, got: false, t: Math.random() * 6 }); grid[y][x] = "."; break;
         case "F": lvl.fish.push({ x: px - 1, y: py + 2, w: 17, h: 10, got: false, expired: false, life: 0, t: Math.random() * 6 }); grid[y][x] = "."; break;
         case "M": lvl.mice.push(makeMouse(px, py)); grid[y][x] = "."; break;
+        case "E": lvl.ducks.push(makeDuck(px, py)); grid[y][x] = "."; break;
         case "S": lvl.skates.push({ x: px + 1, y: py + 6, w: 15, h: 8, got: false, t: Math.random() * 6 }); grid[y][x] = "."; break;
         case "J": lvl.ramps.push({ x: px - 3, y: py - 6, w: TILE + 6, h: TILE + 10 }); grid[y][x] = "."; break;
         case "D": lvl.enemies.push(makeDog(px, py)); grid[y][x] = "."; break;
@@ -1183,6 +1237,13 @@ function isSolid(lvl, tx, ty) {
 }
 function isWater(lvl, tx, ty) { return tileAt(lvl, tx, ty) === "~"; }
 
+/** Zit deze entiteit met zijn midden in het water van een zwemlevel? */
+function inWater(e) {
+  if (!level.def.swim) return false;
+  return isWater(level, Math.floor((e.x + e.w / 2) / TILE),
+                        Math.floor((e.y + e.h / 2) / TILE));
+}
+
 /** Staat er vaste grond onder deze wereldpositie? (voor randdetectie) */
 function groundBelow(lvl, wx, wy) {
   return isSolid(lvl, Math.floor(wx / TILE), Math.floor(wy / TILE));
@@ -1208,6 +1269,13 @@ function makeBird(px, py) {
   return { type: "bird", x: px, y: py + 4, w: 11, h: 8, vx: 0.7, vy: 0,
            homeX: px, homeY: py + 4, range: 52, phase: Math.random() * 6.28,
            dead: false, deadT: 0, anim: 0 };
+}
+
+/** Eend: dobbert rustig op het water, geen gevaar. Vaart soms wat rond en kwaakt. */
+function makeDuck(px, py) {
+  return { x: px, y: py + 6, w: 12, h: 8,
+           homeX: px, dir: Math.random() < 0.5 ? -1 : 1,
+           phase: Math.random() * 6.28, quack: 60 + Math.random() * 200 };
 }
 
 /** Muisje: dwaalt rustig rond, maar sprint weg zodra Jack dichtbij komt. Geen gevaar, alleen vangen voor +10 botjes. */
@@ -1272,17 +1340,26 @@ function movePlayer(p) {
   // --- meebewegen met een zwevend platform waar je op staat ---
   if (p.platform) { p.x += p.platform.dx; p.y += p.platform.dy; }
 
-  // --- horizontaal ---  (op het skateboard: sneller en bijna geen wrijving)
+  const swimming = inWater(p);
+  if (swimming && !p.swimming && p.vy > 1.4) {
+    spawnParticles(p.x + p.w / 2, p.y + p.h, "#bfe6ff", 8, 2.2);
+    Sound.splash();
+  }
+  p.swimming = swimming;
+  if (swimming) { p.skating = false; p.spin = 0; p.spinAngle = 0; }
+
+  // --- horizontaal ---  (skateboard = sneller; water = trager en met demping)
   const fric = p.skating ? SKATE_FRIC : FRICTION;
-  const top  = p.skating ? SKATE_MAX  : MAX_RUN;
+  const top  = swimming ? SWIM_HMAX : (p.skating ? SKATE_MAX : MAX_RUN);
   const dir = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
   if (dir !== 0) {
-    p.vx += dir * ACCEL * (p.skating ? 0.7 : 1);
+    p.vx += dir * ACCEL * (swimming ? 0.5 : (p.skating ? 0.7 : 1));
     if (p.spin === 0) p.facing = dir;
   } else {
     if (p.vx > 0) p.vx = Math.max(0, p.vx - fric);
     else if (p.vx < 0) p.vx = Math.min(0, p.vx + fric);
   }
+  if (swimming) p.vx *= SWIM_DRAG;
   p.vx = Math.max(-top, Math.min(top, p.vx));
 
   p.x += p.vx;
@@ -1293,7 +1370,13 @@ function movePlayer(p) {
   else if (p.x > maxX) { p.x = maxX; p.vx = 0; }
 
   // --- verticaal ---
-  p.vy = Math.min(MAX_FALL, p.vy + GRAVITY);
+  if (swimming) {
+    p.vy += SWIM_SINK;                              // langzaam wegzakken
+    if (keys.jump) p.vy -= SWIM_RISE;               // spatie/omhoog = omhoog peddelen
+    p.vy = Math.max(-SWIM_VMAX, Math.min(SWIM_VMAX, p.vy));
+  } else {
+    p.vy = Math.min(MAX_FALL, p.vy + GRAVITY);
+  }
   p.y += p.vy;
   const wasAir = !p.onGround;
   p.onGround = false;
@@ -1504,6 +1587,17 @@ function updateFishEntity(f) {
   }
 }
 
+/** Eend: dobbert op en neer, vaart traag rond zijn plekje, kwaakt af en toe. */
+function updateDuckEntity(d) {
+  d.phase += 0.06;
+  d.x += d.dir * 0.15;
+  if (d.x < d.homeX - 22 || d.x > d.homeX + 22) d.dir *= -1;
+  if (isOnScreen(d.x)) {
+    d.quack--;
+    if (d.quack <= 0) { Sound.quack(); d.quack = 180 + Math.random() * 260; }
+  }
+}
+
 /* --------------------------------------------------------------------------
    Speler tegen wereld: botjes, vijanden, water, gaten, poort
    -------------------------------------------------------------------------- */
@@ -1619,10 +1713,10 @@ function checkInteractions() {
     }
   }
 
-  // water
+  // water: dodelijk, behalve in een zwemlevel (daar zwem je erin)
   const footTx = Math.floor((p.x + p.w / 2) / TILE);
   const footTy = Math.floor((p.y + p.h - 2) / TILE);
-  if (isWater(level, footTx, footTy)) killPlayer("water");
+  if (isWater(level, footTx, footTy) && !level.def.swim) killPlayer("water");
 
   // in een gat gevallen
   if (p.y > level.height * TILE + 8) killPlayer("val");
@@ -1990,6 +2084,7 @@ function update() {
       level.enemies.forEach(updateEnemy);
       level.mice.forEach(updateMouseEntity);
       level.fish.forEach(updateFishEntity);
+      level.ducks.forEach(updateDuckEntity);
       checkInteractions();
       updateCamera();
       break;
@@ -2302,6 +2397,18 @@ function drawFish() {
   }
 }
 
+function drawDucks() {
+  for (const d of level.ducks) {
+    const x = d.x - cam.x;
+    if (x < -20 || x > VIEW_W + 20) continue;
+    const y = d.y + Math.sin(d.phase) * 1.5;
+    // spiegelbeeld en een rimpeltje op het water
+    ctx.fillStyle = "rgba(255,255,255,.35)";
+    ctx.fillRect(Math.round(x), Math.round(y + 8), 12, 1);
+    blit(SPR.duck, x, y, d.dir > 0);
+  }
+}
+
 function drawMice() {
   for (const m of level.mice) {
     if (m.caught || m.expired) continue;
@@ -2315,15 +2422,26 @@ function drawMice() {
 
 /** Zwevende platforms: bewegend en wolk (die vervaagt naarmate hij oplost). */
 function drawPlatforms() {
+  const lily = level.def.swim;   // in het zwemlevel zijn de platforms waterlelie-bladeren
   for (const pl of level.platforms) {
     const x = Math.round(pl.x - cam.x), y = Math.round(pl.y);
     if (x < -60 || x > VIEW_W + 60) continue;
-    ctx.fillStyle = "#8f7ad8";
-    ctx.fillRect(x, y, pl.w, pl.h);
-    ctx.fillStyle = "#c9bdf5";
-    ctx.fillRect(x, y, pl.w, 2);
-    ctx.fillStyle = "#5c4a9e";
-    ctx.fillRect(x, y + pl.h - 2, pl.w, 2);
+    if (lily) {
+      ctx.fillStyle = "#3f8f4a";
+      ctx.fillRect(x, y, pl.w, pl.h);
+      ctx.fillStyle = "#5fb85f";
+      ctx.fillRect(x, y, pl.w, 2);
+      ctx.fillStyle = "#2c6b38";
+      ctx.fillRect(x, y + pl.h - 2, pl.w, 2);
+      ctx.fillRect(x + pl.w / 2 - 1, y + 1, 2, pl.h - 2);   // nerf in het blad
+    } else {
+      ctx.fillStyle = "#8f7ad8";
+      ctx.fillRect(x, y, pl.w, pl.h);
+      ctx.fillStyle = "#c9bdf5";
+      ctx.fillRect(x, y, pl.w, 2);
+      ctx.fillStyle = "#5c4a9e";
+      ctx.fillRect(x, y + pl.h - 2, pl.w, 2);
+    }
   }
   for (const cl of level.cloudPlatforms) {
     if (cl.state === "gone") continue;
@@ -2448,7 +2566,7 @@ function drawPlayer() {
   }
 
   // zacht schaduwtje zodat Jack ook tegen een drukke tekening goed te zien is
-  if (game.state !== STATE.DEAD) {
+  if (game.state !== STATE.DEAD && !p.swimming) {
     ctx.fillStyle = "rgba(0,0,0,.22)";
     const shy = p.onGround ? p.y + p.h - 1 : p.y + p.h + 3;
     ctx.fillRect(Math.round(x + 2), Math.round(shy - cam.y), 14, 3);
@@ -2464,6 +2582,24 @@ function drawPlayer() {
     ctx.fillStyle = "#8a5730";
     ctx.fillRect(-8, Math.round(spr.height / 2 - 3), 16, 3);
     ctx.restore();
+  } else if (p.swimming) {
+    // zwemmen: Jack ligt schuin in het water en peddelt, onderlijf onder water
+    const swimSpr = (Math.floor(game.frame / 8) % 2) ? catSet.walkA : catSet.walkB;
+    const bob = Math.sin(game.frame * 0.22) * 1.2;
+    const cx = x + swimSpr.width / 2, cy = y + swimSpr.height / 2 + 3 + bob;
+    ctx.save();
+    ctx.translate(Math.round(cx), Math.round(cy));
+    if (p.facing < 0) ctx.scale(-1, 1);
+    ctx.rotate(0.24);
+    ctx.drawImage(swimSpr, Math.round(-swimSpr.width / 2), Math.round(-swimSpr.height / 2));
+    ctx.restore();
+    // waterlijn over het onderlijf + peddelrimpeltjes
+    ctx.fillStyle = "rgba(120,190,235,.55)";
+    ctx.fillRect(Math.round(x - 2), Math.round(p.y + p.h - 3), 20, 6);
+    if (game.frame % 10 < 4) {
+      ctx.fillStyle = "rgba(255,255,255,.7)";
+      ctx.fillRect(Math.round(x + (p.facing < 0 ? -3 : 15)), Math.round(p.y + p.h - 2), 3, 2);
+    }
   } else {
     if (p.skating) board(x + 1, p.y - cam.y + p.h - 4, p.facing < 0);
     blit(spr, x, y, p.facing < 0);
@@ -2935,6 +3071,7 @@ function render() {
   drawGate();
   drawPlatforms();
   drawSkates();
+  drawDucks();
   drawHearts();
   drawFish();
   drawMice();
