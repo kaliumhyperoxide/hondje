@@ -29,8 +29,8 @@ const START_LIVES = 7;       // iets krapper dan het origineel (9)
 const HEARTS_PER_LIFE = 15;  // om de 15 botjes een extra leven
 const BOSS_JUMPS = 8;        // zo vaak moet je over de stofzuiger springen
 
-const SKATE_MAX  = 3.3;      // topsnelheid op het skateboard (lopend is het 2.4)
-const SKATE_FRIC = 0.09;     // op het board rem je zacht af, je glijdt door
+const SKATE_MAX  = 3.65;     // topsnelheid op het skateboard (lopend is het 2.4)
+const SKATE_FRIC = 0.08;     // op het board rem je zacht af, je glijdt door
 const RAMP_LIFT  = 3.4;      // basiskracht van een halfpipe-schans (schaalt mee met je vaart)
 
 const SWIM_SINK = 0.08;      // hoe snel Jack zakt in het water
