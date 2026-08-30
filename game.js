@@ -280,15 +280,47 @@ const DUCK_MAP = [
   "..ooooooooo..",
 ];
 
+// Lampvis: kleine diepzeevis met een lichtje aan een hengeltje. Kijkt naar links.
+const PAL_LANTERN = { o: "#0f1a26", b: "#33506e", w: "#ffffff", y: "#ffe066", t: "#eef2ff" };
+const LANTERN_MAP = [
+  "....y.......",
+  "...y........",
+  "..y.ooooo...",
+  ".ttobbbbbo..",
+  "ttobbbwbboo.",
+  ".ttobbbbbo..",
+  "..o.ooooo...",
+  "............",
+];
+
+// Witte haai: groot, patrouilleert en duikt op Jack af. Kijkt naar links.
+const PAL_SHARK = { o: "#16222e", g: "#8c99a6", w: "#eef2f6", e: "#141414" };
+const SHARK_MAP = [
+  "..............ooooo.....",
+  "............ooggggggo...",
+  ".......ooo.oggggggg.....",
+  ".....ooggggggggggo......",
+  "..oooggggggggggggo......",
+  "otggggggggggggggggooo...",
+  "otwgggggggggggeggggggoo.",
+  "owwwwwgggggggggggggo....",
+  ".ottwwwwwwwwwwwwwoo.....",
+  "...ooowwwwwwwooooo......",
+  ".........ooooo..........",
+  "........................",
+];
+
 // Botje (hondenkluif) in plaats van een hartje. Var-namen blijven "HEART" zodat
 // de rest van de code niet hoeft te veranderen.
-const PAL_HEART = { o: "#8a6a2e", r: "#f2e2b0", h: "#fffbe8" };
+const PAL_HEART = { o: "#7a5c26", r: "#f3e4b4", h: "#fffbe8" };
 const HEART_MAP = [
   ".oo.....oo.",
   "ohro...orho",
-  "orrrooorrro",
+  "orro...orro",
+  "orrrrrrrrro",
   ".orrrrrrro.",
-  "orrrooorrro",
+  "orrrrrrrrro",
+  "orro...orro",
   "ohro...orho",
   ".oo.....oo.",
 ];
@@ -762,6 +794,8 @@ const SPR = {
   },
   bird: bake(BIRD_BODY, PAL_BIRD),
   duck: bake(DUCK_MAP, PAL_DUCK),
+  lantern: bake(LANTERN_MAP, PAL_LANTERN),
+  shark: bake(SHARK_MAP, PAL_SHARK),
   sparrow: bake(BIRD_BODY, PAL_SPARROW),
   heart: bake(HEART_MAP, PAL_HEART),
   fish: bake(FISH_MAP, PAL_FISH),
@@ -858,9 +892,9 @@ const LEVELS = [
       "....................|....................|....................|....................|....................|....................",
       "....................|....................|....................|....................|....................|....................",
       "....~~~~~E~~~~~~~~~~|~~~~~E~~~~~~~~~~~~~~|~~~~~E~~~~~~~~~~~~~~|~~~E~~~~~~~~~~~~~~~~|E~~~~~~~~~~~~~~~~E~~|~~~~~~~~~E~~~.......",
-      "....~~~~~~~H~~~~~~~~|~~~~~~~~~~~~~~~~H~~~|~~~~~~~~~~~~~~~~~~~~|~H~~~~~~~~~~~~~~~~~~|~~~~~~~~H~~~~~~~~~~~|~~~~~~~~~~~~~.......",
-      "....~~~~~~~~~~~~~~~H|~~~~~~~~~~~~~~~~~~~~|~~~~H~~~~~~~~~~~~~~~|~~~~~~~~~~H~F~~~~~~~|~~~~~~~~~~~~~~~~H~~~|~~~~~~~~~~~~~.......",
-      "..P.~~~~~~~~~~~~~~~~|~~~~~~~H~~~~~~~~~~~~|~~~~~~~~~~~~H~~~~~~~|~~~~~~~~~~~~~~~~~~~H|~~~~~~~~~~~~~~~~~~~~|~~~~~H~~~~~~~...G...",
+      "....~~~~~~~H~~~~~~~~|~~~~~~~~~~~~~~~~H~~~|H~~~~~~~~~~~L~~~~~~~|~~~~~~~~H~~~~~~~~~~~|~~W~~~~~~~~~~~~H~~~~|~~~~~~~~~~~~~.......",
+      "....~~~~~~~~~~~~~~~~|~~L~~~~~~~H~~~~~~~W~|~~~~~~~~~~~~~~~~~~H~|~~~~~~~~~~~~F~~~~~~~|~~~~~~H~~~L~~~~~~~~~|~~~~~~~~~~~~~.......",
+      "..P.~~~~~~~~~~~~~~~~|H~~~~~~~~~~~~~~~~~~~|~~~~~~~~~H~~~~~~~~~~|~~~~~~L~~~~~~~~~~H~~|~~~~~~~~~~~~~~~~~~~~|~~~~H~~~~~~~~...G...",
       "#####~~~~~~~~~~~~~~~|~~~~~~~~~~~~~~~~~~~~|~~~~~~~~~~~~~~~~~~~~|~~~~~~~~~~~~~~~~~~~~|~~~~~~~~~~~~~~~~~~~~|~~~~~~~~~~~~~#######",
       "####################|####################|####################|####################|####################|####################",
     ],
@@ -1199,6 +1233,8 @@ function parseLevel(def) {
         case "J": lvl.ramps.push({ x: px - 3, y: py - 6, w: TILE + 6, h: TILE + 10 }); grid[y][x] = "."; break;
         case "D": lvl.enemies.push(makeDog(px, py)); grid[y][x] = "."; break;
         case "B": lvl.enemies.push(makeBird(px, py)); grid[y][x] = "."; break;
+        case "L": lvl.enemies.push(makeLantern(px, py)); grid[y][x] = "."; break;
+        case "W": lvl.enemies.push(makeShark(px, py)); grid[y][x] = "."; break;
         case "C": lvl.enemies.push(makeRival(px, py)); grid[y][x] = "."; break;
         case "A": lvl.enemies.push(makeCar(px, py)); grid[y][x] = "."; break;
         case "G":
@@ -1268,6 +1304,20 @@ function makeCar(px, py) {
 function makeBird(px, py) {
   return { type: "bird", x: px, y: py + 4, w: 11, h: 8, vx: 0.7, vy: 0,
            homeX: px, homeY: py + 4, range: 52, phase: Math.random() * 6.28,
+           dead: false, deadT: 0, anim: 0 };
+}
+
+/** Lampvis: dobbert traag heen en weer, ontwijk hem. */
+function makeLantern(px, py) {
+  return { type: "lantern", x: px, y: py + 4, w: 12, h: 7, vx: -0.35,
+           homeX: px, homeY: py + 4, range: 34, phase: Math.random() * 6.28,
+           dead: false, deadT: 0, anim: 0 };
+}
+
+/** Witte haai: patrouilleert en versnelt naar Jack toe als die dichtbij is. */
+function makeShark(px, py) {
+  return { type: "shark", x: px, y: py + 2, w: 22, h: 10, vx: -1.1,
+           homeX: px, homeY: py + 2, range: 78, phase: Math.random() * 6.28,
            dead: false, deadT: 0, anim: 0 };
 }
 
@@ -1511,6 +1561,30 @@ function updateEnemy(en) {
     return;
   }
 
+  if (en.type === "lantern") {
+    en.x += en.vx;
+    if (en.x < en.homeX - en.range || en.x > en.homeX + en.range) en.vx *= -1;
+    en.phase += 0.04;
+    en.y = en.homeY + Math.sin(en.phase) * 5;
+    return;
+  }
+
+  if (en.type === "shark") {
+    const dx = (player.x + player.w / 2) - (en.x + en.w / 2);
+    const near = Math.abs(dx) < 95 && Math.abs(player.y - en.y) < 42;
+    if (near) {
+      en.vx = (dx < 0 ? -2.1 : 2.1);          // duikt op Jack af
+    } else {
+      en.vx = Math.sign(en.vx || -1) * 1.1;   // rustige patrouille
+      if (en.x < en.homeX - en.range || en.x > en.homeX + en.range) en.vx *= -1;
+    }
+    en.x += en.vx;
+    if (en.x < 0 || en.x > level.width * TILE - en.w) en.vx *= -1;
+    en.phase += 0.14;
+    en.y = en.homeY + Math.sin(en.phase) * 3;
+    return;
+  }
+
   // lopende vijanden: zwaartekracht + omkeren bij muur of afgrond
   en.vy = Math.min(MAX_FALL, en.vy + GRAVITY);
   const oldX = en.x;
@@ -1685,6 +1759,13 @@ function checkInteractions() {
 
     const fromAbove = p.vy > 0 && (p.y + p.h) - p.vy <= en.y + 6;
     const trick = p.spin > 0;   // tijdens een salto ram je vijanden gewoon omver
+    const waterBeast = en.type === "shark" || en.type === "lantern";
+
+    if (waterBeast) {
+      // lampvis en haai kun je niet stompen: aanraken kost een leven
+      if (p.invuln === 0) hurtPlayer(en.x + en.w / 2 < p.x + p.w / 2 ? 1 : -1);
+      continue;
+    }
 
     if (trick && en.type !== "car") {
       en.dead = true; en.vy = -2;
@@ -2491,6 +2572,14 @@ function drawEnemies() {
       const wx = Math.round(x + 3), wy = Math.round(en.y);
       if (up) { ctx.fillRect(wx, wy - 4, 7, 3); ctx.fillRect(wx + 1, wy - 6, 4, 2); }
       else    { ctx.fillRect(wx, wy + 7, 7, 3); ctx.fillRect(wx + 1, wy + 9, 4, 2); }
+    } else if (en.type === "lantern") {
+      blit(SPR.lantern, x, en.y - 2, flip);   // sprite kijkt naar links
+      if (Math.floor(game.frame / 12) % 2 === 0) {   // knipperend loklichtje
+        ctx.fillStyle = "rgba(255,236,130,.95)";
+        ctx.fillRect(Math.round(x + (flip ? en.w - 2 : 4)), Math.round(en.y - 6), 2, 2);
+      }
+    } else if (en.type === "shark") {
+      blit(SPR.shark, x - 1, en.y - 2, flip);
     }
 
     if (en.dead) ctx.restore();
