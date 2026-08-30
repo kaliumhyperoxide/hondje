@@ -817,7 +817,7 @@ const LEVELS = [
   {
     name: "Langs de Beek",
     sky: ["#f4b8c8", "#ffe0d0"],
-    bg: loadBg("achtergrond-beek.jpg"), bgHorizon: 0.63,
+    bg: loadBg("achtergrond-beek.jpg"), bgHorizon: 0.42,
     hill: "#7bbf5e", hillDark: "#5c9a45",
     grass: "#6fc24f", grassDark: "#4f9c37",
     dirt: "#7a5a38", dirtDark: "#5a4228",
@@ -841,7 +841,8 @@ const LEVELS = [
   },
   {
     name: "In de Boomkruinen",
-    sky: ["#a9d8ff", "#d9f0c9"],
+    sky: ["#bcd9ea", "#d6e7ef"],
+    bg: loadBg("achtergrond-boomkruinen.jpg"), bgFill: true,
     hill: "#5c9a4a", hillDark: "#447038",
     grass: "#6ab04a", grassDark: "#4f8a37",
     dirt: "#6b4a2a", dirtDark: "#4e3720",
@@ -2073,16 +2074,24 @@ function update() {
 function drawHandBg(def) {
   const im = BG_IMAGES[def.bg];
   if (!im || !im.complete || !im.naturalWidth) return false;
+  ctx.fillStyle = def.sky ? def.sky[0] : "#bfe3ff";
+  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+  if (def.bgFill) {
+    // tekening vult het hele scherm (voor plaatjes met dezelfde verhouding als de canvas)
+    const s = Math.max(VIEW_W / im.naturalWidth, VIEW_H / im.naturalHeight) * 1.05;
+    const dw = Math.round(im.naturalWidth * s), dh = Math.round(im.naturalHeight * s);
+    const pan = Math.min(Math.max(0, dw - VIEW_W), Math.round(cam.x * 0.05));
+    ctx.drawImage(im, -pan, Math.round((VIEW_H - dh) / 2), dw, dh);
+    return true;
+  }
+
   const groundTop = def.noGround ? VIEW_H : (ROWS - 2) * TILE;
   const horizon = def.bgHorizon || 0.64;
   const w = VIEW_W + 44;                         // net iets breder dan het scherm: klein beetje parallax
   const h = Math.round(w * im.naturalHeight / im.naturalWidth);
   const pan = Math.min(w - VIEW_W, Math.round(cam.x * 0.04));
-  const top = Math.round(groundTop - h * horizon);
-  // vul eventuele rand boven/onder de tekening met de luchtkleur van het level
-  ctx.fillStyle = def.sky ? def.sky[0] : "#bfe3ff";
-  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
-  ctx.drawImage(im, -pan, top, w, h);
+  ctx.drawImage(im, -pan, Math.round(groundTop - h * horizon), w, h);
   return true;
 }
 
